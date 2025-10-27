@@ -12,7 +12,7 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from copy import deepcopy
 
 from pedigree_tools import ProcessSegments, Pedigree, PedigreeHierarchy, introduce_phase_error, Classifier, RemoveRelateds
-
+from ibd_tools import load_haproh_roh, annotate_segments_with_roh
 ''' Ponderosa can take as input a file (e.g., containing IBD segments) that has all chromosomes
 represented, in which case it does not expect chr1 to be in the file name. Otherwise, if the files
 are split by chromosome, the user should supply the path and file name for chromosome 1, in which
@@ -112,7 +112,19 @@ class SampleData:
                 # store the genome_len
 
         self.genome_len = genome_len
-
+        
+        # --- aDNA additions: optional ROH inputs & thresholds ---
+        self.roh_file = kwargs.get("roh_file", "")
+        self.roh_min_cm = kwargs.get("roh_min_cm", 8.0)              # default 8 cM
+        self.roh_overlap_frac = kwargs.get("roh_overlap_frac", 0.5)  # default 50%
+        self.roh_dict = None
+        if os.path.exists(self.roh_file):
+            try:
+                self.roh_dict = load_haproh_roh(self.roh_file)
+                print(f"Loaded ROH tracts from {self.roh_file}")
+            except Exception as e:
+                print(f"Warning: failed to load ROH file {self.roh_file}: {e}")
+  
         ### load the king file
         king_file = kwargs.get("king_file", "")
         mz_twins = set()
@@ -146,7 +158,17 @@ class SampleData:
             # load ibd files
             ibd_df = pd.concat([pd.read_csv(filen, delim_whitespace=True, dtype={"id1": str, "id2": str})
                                 for filen in ibd_files])
-
+            # --- aDNA additions: annotate IBD segments that fall inside ROH ---
+            if self.roh_dict is not None:
+                if not {"start_cm","end_cm"}.issubset(set(ibd_df.columns)):
+                    print("Warning: cannot annotate ROH (missing start_cm/end_cm in IBD). Skipping ROH annotation.")
+                else:
+                    ibd_df = annotate_segments_with_roh(
+                        ibd_df,
+                        self.roh_dict,
+                        roh_min_cM=self.roh_min_cm,
+                        overlap_frac=self.roh_overlap_frac
+                    )
             ibd_df["l"] = ibd_df["end_cm"] - ibd_df["start_cm"]
 
             # iterate through the pairs of individuals, compute ibd stats
@@ -568,6 +590,18 @@ class Args:
         self.population = "pop1"
         self.training = ""
         self.interactive = False
+                # --- aDNA / ROH defaults ---
+        self.roh = ""                 # path to hapROH TSV
+        self.roh_min_cM = 8.0
+        self.roh_overlap_frac = 0.5
+        self.phased_vcf = ""          # reserved for future hap-side work
+        self.ibd_format = "phasedibd" # reserved; current loader expects PONDEROSA-style IBD
+        self.ancibd_kind = "tsv"      # reserved
+        self.min_seg_cM = 8.0         # reserved; enforce upstream when building IBD
+        self.transversions_only = False
+        self.phase_error_max = 0.95
+        self.po_pairs = ""            # reserved; training hook
+
 
         self.update(kwargs)
 
@@ -691,12 +725,25 @@ def parse_args():
     parser.add_argument("--populations", help="Path and file name of .txt file where col1 is the IID and col2 is their population.", default=args.populations)
     parser.add_argument("--yaml", help="YAML file containing all arguments (optional). Can be combined with CLI arguments.", default=args.yaml)
     parser.add_argument("--pedigree_codes", default=args.pedigree_codes)
-    
+    parser.add_argument("--roh", help="hapROH per-individual ROH TSV", default=args.roh)
+    parser.add_argument("--phased_vcf", help="Phased VCF for haplotype-side inference (optional)", default=args.phased_vcf)
+
     # Other arguments
     parser.add_argument("--output", help = "Output prefix.", default="Ponderosa")
     parser.add_argument("--min_p", help="Minimum posterior probability to output the relationship.", default=args.min_p, type=float)
     parser.add_argument("--population", help="Population name to run Ponderosa on.", default=args.population)
     parser.add_argument("--assess", help="For assessing the performance of Ponderosa.", action="store_true")
+    # aDNA / ROH options
+    parser.add_argument("--roh_min_cM", type=float, default=args.roh_min_cM)
+    parser.add_argument("--roh_overlap_frac", type=float, default=args.roh_overlap_frac)
+
+    # reserved switches for future ancIBD/haplotype-side integrations
+    parser.add_argument("--ibd_format", choices=["phasedibd","ancibd"], default=args.ibd_format)
+    parser.add_argument("--ancibd_kind", choices=["tsv","hdf5"], default=args.ancibd_kind)
+    parser.add_argument("--min_seg_cM", type=float, default=args.min_seg_cM)
+    parser.add_argument("--transversions_only", action="store_true", default=args.transversions_only)
+    parser.add_argument("--phase_error_max", type=float, default=args.phase_error_max)
+    parser.add_argument("--po_pairs", default=args.po_pairs)
 
     parser.add_argument("--training", help = "Path and name of the 'degree' pkl file for training.", default=args.training)
     parser.add_argument("--debug", action="store_true")
@@ -739,10 +786,17 @@ if __name__ == "__main__":
 
     # Get the samples for Ponderosa input
     else:
-        samples = SampleData(fam_file=args.fam,
+               samples = SampleData(
+                    fam_file=args.fam,
                     king_file=args.king,
                     ibd_file=args.ibd,
-                    map_file=args.map)
+                    map_file=args.map,
+                    # aDNA / ROH passthrough
+                    roh_file=args.roh,
+                    roh_min_cm=args.roh_min_cM,
+                    roh_overlap_frac=args.roh_overlap_frac
+                )
+
         if args.debug:
             i = open(f"{args.output}_samples.pkl", "wb")
             pkl.dump(samples, i)
