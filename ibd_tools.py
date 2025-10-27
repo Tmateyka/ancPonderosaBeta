@@ -1,6 +1,7 @@
-
-
-
+import numpy as np
+import pandas as pd
+import itertools as it
+from typing import Dict, List, Tuple
 def split_regions(region_dict, new_region):
     # returns the overlap of 2 regions (<= 0 if no overlap)
     def overlap(region1, region2):
@@ -33,6 +34,101 @@ def split_regions(region_dict, new_region):
         # unpack the membership
         out_region[(start,stop)] = sorted(it.chain(*info))
     return out_region
+# =========================
+# aDNA ROH annotation hooks
+# =========================
+
+def load_haproh_roh(path: str) -> Dict[str, Dict[str, List[Tuple[float, float]]]]:
+    """
+    Load hapROH per-individual ROH tracts. Flexible column names accepted:
+      - sample ID: iid | ID | sample
+      - chromosome: chromosome | chrom | chr
+      - start cM: start_cm | start_cM | start
+      - end cM:   end_cm | end_cM | end
+    Returns:
+      dict mapping: { iid -> { chromosome -> [(start_cm, end_cm), ...] } }
+    """
+    df = pd.read_csv(path, sep="\t")
+    # normalize columns
+    cmap = {
+        "iid": "iid", "ID": "iid", "sample": "iid",
+        "chromosome": "chromosome", "chrom": "chromosome", "chr": "chromosome",
+        "start_cm": "start_cm", "start_cM": "start_cm", "start": "start_cm",
+        "end_cm": "end_cm", "end_cM": "end_cm", "end": "end_cm",
+    }
+    df = df.rename(columns={k: v for k, v in cmap.items() if k in df.columns})
+
+    required = {"iid", "chromosome", "start_cm", "end_cm"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"hapROH loader: missing columns {missing} in {path}")
+
+    # numeric coercion
+    for c in ["start_cm", "end_cm"]:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+
+    out: Dict[str, Dict[str, List[Tuple[float, float]]]] = {}
+    for row in df.itertuples(index=False):
+        iid = getattr(row, "iid")
+        chrom = str(getattr(row, "chromosome"))
+        s = float(getattr(row, "start_cm"))
+        e = float(getattr(row, "end_cm"))
+        out.setdefault(iid, {}).setdefault(chrom, []).append((s, e))
+    return out
+
+
+def _frac_overlap_cm(a_cm: float, b_cm: float, intervals: List[Tuple[float, float]], roh_min_cm: float) -> float:
+    """Fraction of [a_cm, b_cm] that overlaps any ROH interval ≥ roh_min_cm."""
+    if b_cm <= a_cm:
+        return 0.0
+    ov = 0.0
+    for s, e in intervals:
+        if (e - s) < roh_min_cm:
+            continue
+        x = max(a_cm, s)
+        y = min(b_cm, e)
+        if y > x:
+            ov += (y - x)
+    return ov / (b_cm - a_cm)
+
+
+def annotate_segments_with_roh(
+    segs: pd.DataFrame,
+    roh_dict: Dict[str, Dict[str, List[Tuple[float, float]]]],
+    roh_min_cM: float = 8.0,
+    overlap_frac: float = 0.5,
+) -> pd.DataFrame:
+    """
+    Annotate each IBD segment with whether it substantially overlaps (≥ overlap_frac)
+    a long ROH (≥ roh_min_cM) in either individual. Does NOT drop segments.
+    Adds columns:
+      - roh_overlap_frac_ind1, roh_overlap_frac_ind2
+      - in_roh_ind1, in_roh_ind2  (booleans)
+    Requires seg columns: id1, id2, chromosome, start_cm, end_cm
+    """
+    required = {"id1", "id2", "chromosome", "start_cm", "end_cm"}
+    missing = required - set(segs.columns)
+    if missing:
+        raise ValueError(f"annotate_segments_with_roh: missing columns {missing}")
+
+    f1, f2 = [], []
+    for r in segs.itertuples(index=False):
+        iid1 = str(getattr(r, "id1"))
+        iid2 = str(getattr(r, "id2"))
+        chrom = str(getattr(r, "chromosome"))
+        a = float(getattr(r, "start_cm"))
+        b = float(getattr(r, "end_cm"))
+        r1 = roh_dict.get(iid1, {}).get(chrom, [])
+        r2 = roh_dict.get(iid2, {}).get(chrom, [])
+        f1.append(_frac_overlap_cm(a, b, r1, roh_min_cM))
+        f2.append(_frac_overlap_cm(a, b, r2, roh_min_cM))
+
+    segs = segs.copy()
+    segs["roh_overlap_frac_ind1"] = f1
+    segs["roh_overlap_frac_ind2"] = f2
+    segs["in_roh_ind1"] = segs["roh_overlap_frac_ind1"] >= float(overlap_frac)
+    segs["in_roh_ind2"] = segs["roh_overlap_frac_ind2"] >= float(overlap_frac)
+    return segs
 
 
 
