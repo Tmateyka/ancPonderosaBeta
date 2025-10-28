@@ -454,7 +454,9 @@ class ResultsData:
 
 
     def get_classifier(self, name):
-        return self.classifiers[{"degree_class":0, "segments_class":1, "hap_class":2}[name]]
+    # order of self.classifiers is [degree, hap, n]
+    return self.classifiers[{"degree_class": 0, "hap_class": 1, "segments_class": 2}[name]]
+
 
     # writes out a human readable output; can specificy the columns
     def write_readable(self, output, **kwargs):
@@ -500,8 +502,12 @@ class ResultsData:
         self.df["most_probable"], self.df["probability"] = zip(*self.df["probs"].apply(lambda x: x.most_probable(min_p)))
 
         if update_attrs:
-            self.samples.update_edges(self.df[["id1","id2"]].values, self.samples["most_probable"].values, "most_probable")
-            self.samples.update_edges(self.df[["id1","id2"]].values, self.samples["most_probable"].values, "probability")
+            edge_keys = [tuple(x) for x in self.df[["id1", "id2"]].values]
+            mpairs = list(zip(edge_keys, self.df["most_probable"].values))
+            ppairs = list(zip(edge_keys, self.df["probability"].values))
+            self.samples.update_edges(mpairs, "most_probable")
+            self.samples.update_edges(ppairs, "probability")
+
 
     # recomputes probs across all rows of df
     def compute_probs(self):
