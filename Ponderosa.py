@@ -727,7 +727,7 @@ def parse_args():
 
     # Optional file arguments
     parser.add_argument("--ages", help="Age file. First column is the IID, second column is the age", default=args.ages)
-    parser.add_argument("--map", help = "PLINK-formatted .map file.", default=args.ages)
+    parser.add_argument("--map", help = "PLINK-formatted .map file.", default=args.map)
     parser.add_argument("--populations", help="Path and file name of .txt file where col1 is the IID and col2 is their population.", default=args.populations)
     parser.add_argument("--yaml", help="YAML file containing all arguments (optional). Can be combined with CLI arguments.", default=args.yaml)
     parser.add_argument("--pedigree_codes", default=args.pedigree_codes)
@@ -792,15 +792,29 @@ if __name__ == "__main__":
 
     # Get the samples for Ponderosa input
     else:
-               samples = SampleData(
-                    fam_file=args.fam,
-                    king_file=args.king,
-                    ibd_file=args.ibd,
-                    map_file=args.map,
-                    # aDNA / ROH passthrough
-                    roh_file=args.roh,
-                    roh_min_cm=args.roh_min_cM,
-                    roh_overlap_frac=args.roh_overlap_frac
+               else:
+else:
+    samples = SampleData(
+        fam_file=args.fam,
+        king_file=args.king,
+        ibd_file=args.ibd,
+        map_file=args.map,
+        # aDNA / ROH passthrough
+        roh_file=args.roh,
+        roh_min_cm=args.roh_min_cM,
+        roh_overlap_frac=args.roh_overlap_frac
+    )
+
+    if args.debug:
+        i = open(f"{args.output}_samples.pkl", "wb")
+        pkl.dump(samples, i)
+        i.close()
+
+    if args.debug:
+        i = open(f"{args.output}_samples.pkl", "wb")
+        pkl.dump(samples, i)
+        i.close()
+
                 )
 
         if args.debug:
@@ -808,10 +822,8 @@ if __name__ == "__main__":
             pkl.dump(samples, i)
             i.close()
 
-    PONDEROSA(samples=samples,
-              min_p=args.min_p,
-              assess=args.assess,
-              output=args.output)
+   PONDEROSA(samples=samples, args=args)
+
 
 
 '''
