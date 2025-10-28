@@ -453,9 +453,11 @@ class ResultsData:
         self.classifiers = classifiers
 
 
-    def get_classifier(self, name):
-    # order of self.classifiers is [degree, hap, n]
-    return self.classifiers[{"degree_class": 0, "hap_class": 1, "segments_class": 2}[name]]
+     def get_classifier(self, name):
+         # order of self.classifiers is [degree, hap, n]
+         return self.classifiers[{"degree_class": 0, "hap_class": 1, "segments_class": 2}[name]]
+
+
 
 
     # writes out a human readable output; can specificy the columns
@@ -791,8 +793,7 @@ if __name__ == "__main__":
         i.close()
 
     # Get the samples for Ponderosa input
-    else:
-               else:
+
 else:
     samples = SampleData(
         fam_file=args.fam,
