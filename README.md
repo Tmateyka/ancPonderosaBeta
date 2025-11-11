@@ -15,10 +15,7 @@
 
 **On the HPC that I use, I need to replace the third line of the `phasedibd` Makefile with `python -m pip install cython` (currently it reads `pip install cython --user`, which may cause permissions issues).
 
-#NEW:Verified compatibility with Python 3.10.9 and tested under Linux HPC environments.
-#Automatically detects headless systems and switches plotting to a non-GUI (Agg) backend.
-#Added reproducible random seeding in internal utilities to ensure consistent results across runs.
-#Minor dependency upgrades for phasedIBD integration and map interpolation stability.
+# NEW:Verified compatibility with Python 3.10.9 and tested under Linux HPC environments. Automatically detects headless systems and switches plotting to a non-GUI (Agg) backend.Added reproducible random seeding in internal utilities to ensure consistent results across runs.Minor dependency upgrades for phasedIBD integration and map interpolation stability.
 
 ### Setting up a conda environment
 
@@ -26,9 +23,7 @@
 2. Activate the virtual environment: `conda activate ponderosa`
 3. To set up `phasedibd`, proceed using steps 4-8 above.
 
-#NEW: environment.yaml now includes all aDNA-related dependencies (networkx, pyyaml, scikit-learn, matplotlib, pandas, etc.) with pinned versions for long-term reproducibility.
-#Added compatibility with both CPU-only and HPC multi-node execution.
-#Ensures smooth installation of Graphviz (optional) and automatic fallback if unavailable.
+# NEW: environment.yaml now includes all aDNA-related dependencies (networkx, pyyaml, scikit-learn, matplotlib, pandas, etc.) with pinned versions for long-term reproducibility.Added compatibility with both CPU-only and HPC multi-node execution. Ensures smooth installation of Graphviz (optional) and automatic fallback if unavailable.
 
 ### Creating a map file
 
@@ -56,11 +51,7 @@ The following arguments are accepted:
 - `-input_map`: Plink MAP file. `phasedibd` requires that it contains *exactly* the sites in `input_vcf`; see above `-interpolate` to create this file.
 - `-outfile`: the name of the file to write the IBD segments to.
 
-#NEW: Added optional segment length filter (--min_cm) to remove spurious short IBD tracts common in low-coverage aDNA.
-#Exposed TPBWT parameter (--L_f) for tuning IBD sensitivity and false-positive balance.
-#Added --use_phase_correction to improve accuracy with partially phased data.
-#Fixed a rare uninitialized variable error that caused IBD export issues.
-#All new flags are optional — default behavior remains identical to earlier versions.
+# NEW: Added optional segment length filter (--min_cm) to remove spurious short IBD tracts common in low-coverage aDNA. Exposed TPBWT parameter (--L_f) for tuning IBD sensitivity and false-positive balance. Added --use_phase_correction to improve accuracy with partially phased data. Fixed a rare uninitialized variable error that caused IBD export issues. All new flags are optional — default behavior remains identical to earlier versions.
 
 ### Running PONDEROSA
 
@@ -83,11 +74,7 @@ The following arguments are accepted:
 - `--assess`: For assessing the performance of Ponderosa on the known pairs.
 - `--training`: Full path and file name to the degree classifier. Assumes that the the haplotype score classifier (hap) and number of IBD segments classifier (nsegs) have the same prefix/suffix.
 
-#NEW: Added compatibility for ancient DNA datasets with incomplete phasing and high error rates.
-#Enhanced handling of missing age, population, or parental information (graceful warnings).
-#Supports automatic hierarchy visualization even without Graphviz installed.
-#Improved reproducibility of unrelated set selection via RNG seeding.
-#Added optional parameters from pedigree_codes.yaml for custom relationship trees (2nd+, 3rd+, etc.).
+# NEW: Added compatibility for ancient DNA datasets with incomplete phasing and high error rates. Enhanced handling of missing age, population, or parental information (graceful warnings). Supports automatic hierarchy visualization even without Graphviz installed. Improved reproducibility of unrelated set selection via RNG seeding. Added optional parameters from pedigree_codes.yaml for custom relationship trees (2nd+, 3rd+, etc.).
 
 ### Plotting IBD segments
 
@@ -111,12 +98,4 @@ segments = [[1, 32.1, 45.6, 0], [2, 45.5, 123.4, 1]]
 
 kgram.plot_segments(segments, file_name = "my_karyogram", hap0_color = "skyblue")
 ```
-#NEW: Automatically switches to Agg backend on clusters or headless systems (no GUI needed).
-
-#Improved axis scaling for uneven chromosome lengths common in ancient reference panels.
-
-#Enhanced rendering of overlapping tracts and optional high-contrast color themes for degraded DNA datasets.
-
-#Added built-in seed control for reproducible figure layouts.
-
-#Optional warning if chromosome order mismatches between .map files and IBD segment list.
+# NEW: Automatically switches to Agg backend on clusters or headless systems (no GUI needed). Improved axis scaling for uneven chromosome lengths common in ancient reference panels. Enhanced rendering of overlapping tracts and optional high-contrast color themes for degraded DNA datasets. Added built-in seed control for reproducible figure layouts. Optional warning if chromosome order mismatches between .map files and IBD segment list.
